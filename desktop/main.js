@@ -10,6 +10,7 @@ const path = require("node:path");
 // KURAMA_URL hanya untuk pengujian (mis. http://localhost:8765/); pengguna selalu memakai situs resmi
 const HOME = process.env.KURAMA_URL || "https://kurama.xianzing.my.id/";
 const HOST = new URL(HOME).host;
+const ORIGIN = new URL(HOME).origin + "/";  // alamat dasar untuk login, walau KURAMA_URL menunjuk ke halaman tertentu
 const SCHEME = "kurama";
 
 let win = null;
@@ -152,10 +153,14 @@ function createWindow() {
 
   // Uji cepat (KURAMA_SMOKE=<berkas.png>): muat halaman, simpan tangkapan jendela + judul, lalu keluar
   if (process.env.KURAMA_SMOKE) {
+    const [sw, sh] = (process.env.KURAMA_SMOKE_SIZE || "").split("x").map(Number);  // mis. 400x860 untuk uji tampilan ponsel
+    if (sw && sh) { win.setMinimumSize(320, 480); win.setSize(sw, sh); }
     win.webContents.once("did-finish-load", () => setTimeout(async () => {
+      // KURAMA_SMOKE_JS dijalankan dulu (mis. membuka mode samaran), baru jendela dipotret
+      const info = await win.webContents.executeJavaScript(process.env.KURAMA_SMOKE_JS || "[location.href, document.title, document.documentElement.className].join(' | ')");
+      await new Promise((r) => setTimeout(r, 900));
       const img = await win.webContents.capturePage();
       fs.writeFileSync(process.env.KURAMA_SMOKE, img.toPNG());
-      const info = await win.webContents.executeJavaScript(process.env.KURAMA_SMOKE_JS || "[location.href, document.title, document.documentElement.className].join(' | ')");
       console.log(`KURAMA_SMOKE ${info}`);
       app.quit();
     }, 2500));
@@ -169,7 +174,7 @@ function createWindow() {
 function startLogin(provider) {
   verifier = crypto.randomBytes(32).toString("base64url");
   const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
-  shell.openExternal(`${HOME}auth/${provider}/login?app=${challenge}`);
+  shell.openExternal(`${ORIGIN}auth/${provider}/login?app=${challenge}`);
 }
 
 function handleLink(link) {
@@ -180,8 +185,8 @@ function handleLink(link) {
   const v = verifier;
   verifier = null;
   if (!win) return;
-  if (code && v) win.loadURL(`${HOME}auth/app/redeem?code=${encodeURIComponent(code)}&verifier=${encodeURIComponent(v)}`);
-  else if (!win.webContents.getURL()) win.loadURL(`${HOME}login`);
+  if (code && v) win.loadURL(`${ORIGIN}auth/app/redeem?code=${encodeURIComponent(code)}&verifier=${encodeURIComponent(v)}`);
+  else if (!win.webContents.getURL()) win.loadURL(`${ORIGIN}login`);
   if (win.isMinimized()) win.restore();
   win.focus();
 }
