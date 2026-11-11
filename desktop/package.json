@@ -3,7 +3,10 @@
   "productName": "Kurama",
   "version": "1.0.0",
   "description": "Kurama, teman berpikir untuk ide, tulisan, dan kode",
-  "author": { "name": "KyMind", "email": "noreply@kymind.id" },
+  "author": {
+    "name": "KyMind",
+    "email": "noreply@kymind.id"
+  },
   "homepage": "https://kurama.xianzing.my.id",
   "license": "UNLICENSED",
   "main": "main.js",
@@ -21,23 +24,63 @@
     "appId": "id.kymind.kurama",
     "productName": "Kurama",
     "copyright": "© KyMind",
-    "directories": { "output": "dist", "buildResources": "build" },
-    "files": ["main.js", "preload.js", "offline.html", "build/icon.png", "build/rubah.png"],
-    "protocols": [{ "name": "Kurama", "schemes": ["kurama"] }],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "offline.html",
+      "build/icon.png",
+      "build/rubah.png"
+    ],
+    "protocols": [
+      {
+        "name": "Kurama",
+        "schemes": [
+          "kurama"
+        ]
+      }
+    ],
     "artifactName": "kurama-${version}-${arch}.${ext}",
     "linux": {
-      "target": ["deb", "AppImage"],
+      "target": [
+        "deb",
+        "AppImage"
+      ],
       "category": "Utility",
       "icon": "build/icon.png",
       "maintainer": "KyMind",
       "vendor": "KyMind",
       "synopsis": "Teman berpikir untuk ide, tulisan, dan kode",
       "executableName": "kurama",
-      "desktop": { "entry": { "StartupWMClass": "Kurama" } }
+      "desktop": {
+        "entry": {
+          "StartupWMClass": "Kurama"
+        }
+      }
     },
-    "deb": { "packageName": "kurama" },
-    "win": { "target": "nsis", "icon": "build/icon.png" },
-    "nsis": { "oneClick": true, "shortcutName": "Kurama" },
-    "mac": { "target": "dmg", "icon": "build/icon.png", "category": "public.app-category.productivity" }
+    "deb": {
+      "packageName": "kurama"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "shortcutName": "Kurama"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icon.png",
+      "category": "public.app-category.productivity"
+    },
+    "publish": null
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ky-Mind/kurama-rilis.git"
   }
 }
