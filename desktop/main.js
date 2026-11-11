@@ -51,11 +51,9 @@ function saveState() {
 }
 
 const background = () => (nativeTheme.shouldUseDarkColors ? "#262624" : "#faf9f5");
-const foreground = () => (nativeTheme.shouldUseDarkColors ? "#e8e6dc" : "#3d3d3a");
 const IS_MAC = process.platform === "darwin";
 // Ukuran tampilan bawaan sedikit lebih ringkas (seperti aplikasi Claude); Ctrl +/- tetap bisa dan diingat
 const DEFAULT_ZOOM = 0.9;
-const TOPBAR_PX = 52;  // tinggi bilah atas halaman (.top = 3.25rem) pada zoom 100%
 
 // ───────── Layar pembuka: rubah di tengah, KyMind di bawah ─────────
 function createSplash() {
@@ -82,11 +80,10 @@ function createWindow() {
     title: "Kurama",
     backgroundColor: background(),
     autoHideMenuBar: true,
-    // Tanpa bilah judul sistem: tombol jendela digambar di bilah atas aplikasi, seperti aplikasi Claude
-    titleBarStyle: "hidden",
-    ...(IS_MAC
-      ? { trafficLightPosition: { x: 14, y: 16 } }
-      : { titleBarOverlay: { color: background(), symbolColor: foreground(), height: Math.round(TOPBAR_PX * (s.zoom || DEFAULT_ZOOM)) } }),
+    // Tanpa bilah judul sistem, seperti aplikasi Claude: di Linux/Windows jendela tanpa bingkai dan tombol
+    // jendela (bulat: perkecil, perbesar, tutup) digambar halaman (static/native.js). Cara "titleBarOverlay"
+    // tidak dipakai karena di GNOME/Wayland bilah judul sistem tetap muncul. macOS memakai lampu lalu lintas.
+    ...(IS_MAC ? { titleBarStyle: "hiddenInset", trafficLightPosition: { x: 14, y: 18 } } : { frame: false }),
     icon: path.join(__dirname, "build", "icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -97,15 +94,17 @@ function createWindow() {
   });
   // Zoom: bawaan 90%, pilihan pengguna diingat; tinggi tombol jendela mengikuti tinggi bilah atas
   const zoom = s.zoom || DEFAULT_ZOOM;
-  const syncOverlay = () => {
-    if (IS_MAC || !win || win.isDestroyed()) return;
-    try { win.setTitleBarOverlay({ height: Math.round(TOPBAR_PX * win.webContents.getZoomFactor()) }); } catch { /* abaikan */ }
-  };
-  win.webContents.on("did-finish-load", () => { win.webContents.setZoomFactor(win._zoom || zoom); syncOverlay(); });
+  win.webContents.on("did-finish-load", () => {
+    win.webContents.setZoomFactor(win._zoom || zoom);
+    win.webContents.send("kurama:maximized", win.isMaximized());
+  });
   win.setZoom = (z) => {
     z = Math.round(Math.min(1.6, Math.max(0.6, z)) * 100) / 100;
-    win.webContents.setZoomFactor(z); win._zoom = z; syncOverlay(); saveState();
+    win.webContents.setZoomFactor(z); win._zoom = z; saveState();
   };
+  // Ikon tombol perbesar berganti saat jendela dimaksimalkan/dipulihkan
+  ["maximize", "unmaximize", "enter-full-screen", "leave-full-screen"].forEach((ev) =>
+    win.on(ev, () => win.webContents.send("kurama:maximized", win.isMaximized() || win.isFullScreen())));
   win.webContents.on("zoom-changed", (_e, dir) => win.setZoom(win.webContents.getZoomFactor() + (dir === "in" ? 0.1 : -0.1)));
   win.webContents.setUserAgent(`${win.webContents.getUserAgent()} KuramaApp/${app.getVersion()} (Desktop)`);
 
@@ -209,11 +208,17 @@ function appMenu() {
   ]);
 }
 
-// Halaman memberi tahu warna bilah atasnya (tema terang/gelap/samaran) supaya tombol jendela ikut menyatu
-ipcMain.on("kurama:titlebar", (e, bg, fg) => {
-  if (!win || e.sender !== win.webContents || IS_MAC) return;
-  const ok = (c) => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c);
-  if (ok(bg) && ok(fg)) { try { win.setTitleBarOverlay({ color: bg, symbolColor: fg }); win.setBackgroundColor(bg); } catch { /* abaikan */ } }
+// Warna latar bilah atas halaman: dipakai sebagai warna jendela (tidak ada kilatan warna lain saat ukuran berubah)
+ipcMain.on("kurama:titlebar", (e, bg) => {
+  if (!win || e.sender !== win.webContents) return;
+  if (typeof bg === "string" && /^#[0-9a-f]{6}$/i.test(bg)) { try { win.setBackgroundColor(bg); } catch { /* abaikan */ } }
+});
+// Tombol jendela buatan halaman: perkecil, perbesar/pulihkan, tutup
+ipcMain.on("kurama:window", (e, action) => {
+  if (!win || e.sender !== win.webContents) return;
+  if (action === "min") win.minimize();
+  else if (action === "max") (win.isMaximized() ? win.unmaximize() : win.maximize());
+  else if (action === "close") win.close();
 });
 
 app.whenReady().then(() => {

@@ -3,6 +3,9 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("kuramaDesktop", {
   platform: process.platform,
-  // Warna bilah atas halaman (#rrggbb) untuk tombol jendela yang digambar di dalam aplikasi
+  // Warna latar bilah atas halaman (#rrggbb)
   titleBar: (bg, fg) => ipcRenderer.send("kurama:titlebar", String(bg), String(fg)),
+  // Tombol jendela buatan halaman: "min" | "max" | "close"
+  windowAction: (action) => ipcRenderer.send("kurama:window", String(action)),
+  onMaximized: (cb) => ipcRenderer.on("kurama:maximized", (_e, on) => cb(!!on)),
 });
