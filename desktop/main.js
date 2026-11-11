@@ -2,13 +2,14 @@
    Isi tetap dari situs, jadi pembaruan web langsung ikut. Login Google/GitHub dibuka di browser bawaan sistem
    (Google melarang login di jendela aplikasi), lalu kembali ke aplikasi lewat kurama://masuk dengan kode
    sekali pakai + verifier rahasia milik aplikasi (mirip PKCE). */
-const { app, BrowserWindow, Menu, shell, nativeTheme } = require("electron");
+const { app, BrowserWindow, Menu, shell, nativeTheme, ipcMain } = require("electron");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const HOST = "kurama.xianzing.my.id";
-const HOME = `https://${HOST}/`;
+// KURAMA_URL hanya untuk pengujian (mis. http://localhost:8765/); pengguna selalu memakai situs resmi
+const HOME = process.env.KURAMA_URL || "https://kurama.xianzing.my.id/";
+const HOST = new URL(HOME).host;
 const SCHEME = "kurama";
 
 let win = null;
@@ -45,10 +46,16 @@ function loadState() {
 function saveState() {
   if (!win || win.isDestroyed()) return;
   const b = win.getNormalBounds();
-  try { fs.writeFileSync(stateFile(), JSON.stringify({ ...b, maximized: win.isMaximized() })); } catch { /* abaikan */ }
+  const zoom = win.webContents.getZoomFactor();
+  try { fs.writeFileSync(stateFile(), JSON.stringify({ ...b, maximized: win.isMaximized(), zoom })); } catch { /* abaikan */ }
 }
 
 const background = () => (nativeTheme.shouldUseDarkColors ? "#262624" : "#faf9f5");
+const foreground = () => (nativeTheme.shouldUseDarkColors ? "#e8e6dc" : "#3d3d3a");
+const IS_MAC = process.platform === "darwin";
+// Ukuran tampilan bawaan sedikit lebih ringkas (seperti aplikasi Claude); Ctrl +/- tetap bisa dan diingat
+const DEFAULT_ZOOM = 0.9;
+const TOPBAR_PX = 52;  // tinggi bilah atas halaman (.top = 3.25rem) pada zoom 100%
 
 // ───────── Layar pembuka: rubah di tengah, KyMind di bawah ─────────
 function createSplash() {
@@ -75,6 +82,11 @@ function createWindow() {
     title: "Kurama",
     backgroundColor: background(),
     autoHideMenuBar: true,
+    // Tanpa bilah judul sistem: tombol jendela digambar di bilah atas aplikasi, seperti aplikasi Claude
+    titleBarStyle: "hidden",
+    ...(IS_MAC
+      ? { trafficLightPosition: { x: 14, y: 16 } }
+      : { titleBarOverlay: { color: background(), symbolColor: foreground(), height: Math.round(TOPBAR_PX * (s.zoom || DEFAULT_ZOOM)) } }),
     icon: path.join(__dirname, "build", "icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -83,6 +95,18 @@ function createWindow() {
       spellcheck: true,
     },
   });
+  // Zoom: bawaan 90%, pilihan pengguna diingat; tinggi tombol jendela mengikuti tinggi bilah atas
+  const zoom = s.zoom || DEFAULT_ZOOM;
+  const syncOverlay = () => {
+    if (IS_MAC || !win || win.isDestroyed()) return;
+    try { win.setTitleBarOverlay({ height: Math.round(TOPBAR_PX * win.webContents.getZoomFactor()) }); } catch { /* abaikan */ }
+  };
+  win.webContents.on("did-finish-load", () => { win.webContents.setZoomFactor(win._zoom || zoom); syncOverlay(); });
+  win.setZoom = (z) => {
+    z = Math.round(Math.min(1.6, Math.max(0.6, z)) * 100) / 100;
+    win.webContents.setZoomFactor(z); win._zoom = z; syncOverlay(); saveState();
+  };
+  win.webContents.on("zoom-changed", (_e, dir) => win.setZoom(win.webContents.getZoomFactor() + (dir === "in" ? 0.1 : -0.1)));
   win.webContents.setUserAgent(`${win.webContents.getUserAgent()} KuramaApp/${app.getVersion()} (Desktop)`);
 
   let shown = false;
@@ -132,7 +156,7 @@ function createWindow() {
     win.webContents.once("did-finish-load", () => setTimeout(async () => {
       const img = await win.webContents.capturePage();
       fs.writeFileSync(process.env.KURAMA_SMOKE, img.toPNG());
-      const info = await win.webContents.executeJavaScript("[location.href, document.title, document.documentElement.className].join(' | ')");
+      const info = await win.webContents.executeJavaScript(process.env.KURAMA_SMOKE_JS || "[location.href, document.title, document.documentElement.className].join(' | ')");
       console.log(`KURAMA_SMOKE ${info}`);
       app.quit();
     }, 2500));
@@ -180,10 +204,17 @@ function appMenu() {
   return Menu.buildFromTemplate([
     ...(isMac ? [{ role: "appMenu" }] : []),
     { label: "Edit", submenu: [{ role: "undo" }, { role: "redo" }, { type: "separator" }, { role: "cut" }, { role: "copy" }, { role: "paste" }, { role: "selectAll" }] },
-    { label: "Tampilan", submenu: [{ role: "reload", label: "Muat ulang" }, { type: "separator" }, { role: "resetZoom", label: "Ukuran asli" }, { role: "zoomIn", label: "Perbesar" }, { role: "zoomOut", label: "Perkecil" }, { type: "separator" }, { role: "togglefullscreen", label: "Layar penuh" }] },
+    { label: "Tampilan", submenu: [{ role: "reload", label: "Muat ulang" }, { type: "separator" }, { label: "Ukuran asli", accelerator: "CmdOrCtrl+0", click: () => win && win.setZoom(DEFAULT_ZOOM) }, { label: "Perbesar", accelerator: "CmdOrCtrl+=", click: () => win && win.setZoom(win.webContents.getZoomFactor() + 0.1) }, { label: "Perbesar", accelerator: "CmdOrCtrl+Plus", visible: false, click: () => win && win.setZoom(win.webContents.getZoomFactor() + 0.1) }, { label: "Perkecil", accelerator: "CmdOrCtrl+-", click: () => win && win.setZoom(win.webContents.getZoomFactor() - 0.1) }, { type: "separator" }, { role: "togglefullscreen", label: "Layar penuh" }] },
     { label: "Jendela", submenu: [{ role: "minimize", label: "Kecilkan" }, { role: "close", label: "Tutup" }] },
   ]);
 }
+
+// Halaman memberi tahu warna bilah atasnya (tema terang/gelap/samaran) supaya tombol jendela ikut menyatu
+ipcMain.on("kurama:titlebar", (e, bg, fg) => {
+  if (!win || e.sender !== win.webContents || IS_MAC) return;
+  const ok = (c) => typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c);
+  if (ok(bg) && ok(fg)) { try { win.setTitleBarOverlay({ color: bg, symbolColor: fg }); win.setBackgroundColor(bg); } catch { /* abaikan */ } }
+});
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(appMenu());

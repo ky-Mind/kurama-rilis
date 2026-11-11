@@ -1,7 +1,7 @@
 {
   "name": "kurama",
   "productName": "Kurama",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Kurama, teman berpikir untuk ide, tulisan, dan kode",
   "author": {
     "name": "KyMind",
@@ -50,7 +50,7 @@
         "AppImage"
       ],
       "category": "Utility",
-      "icon": "build/icon.png",
+      "icon": "build/icons",
       "maintainer": "KyMind",
       "vendor": "KyMind",
       "synopsis": "Teman berpikir untuk ide, tulisan, dan kode",
