@@ -1,0 +1,80 @@
+# Membuat paket desktop Kurama (Linux, Windows, macOS) dan melampirkannya ke rilis GitHub.
+# Jalankan manual dari tab Actions (isi tag, mis. v1.0.0) atau otomatis saat tag v* didorong.
+name: Build desktop
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag rilis, mis. v1.0.0"
+        required: true
+      platforms:
+        description: "Platform (pisahkan koma): linux,windows,mac"
+        required: false
+        default: "windows,mac"
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux
+            os: ubuntu-latest
+            args: --linux deb AppImage
+          - name: windows
+            os: windows-latest
+            args: --win nsis --x64
+          - name: mac
+            os: macos-latest
+            args: --mac dmg --universal
+    runs-on: ${{ matrix.os }}
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      PLATFORMS: ${{ github.event.inputs.platforms || 'linux,windows,mac' }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Lewati platform yang tidak diminta
+        id: want
+        shell: bash
+        run: |
+          if [[ ",$PLATFORMS," == *",${{ matrix.name }},"* ]]; then echo "go=1" >> "$GITHUB_OUTPUT"; else echo "go=0" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/checkout@v4
+        if: steps.want.outputs.go == '1'
+      - uses: actions/setup-node@v4
+        if: steps.want.outputs.go == '1'
+        with:
+          node-version: 22
+      - name: Pasang dependensi
+        if: steps.want.outputs.go == '1'
+        working-directory: desktop
+        run: npm ci
+      - name: Buat paket
+        if: steps.want.outputs.go == '1'
+        working-directory: desktop
+        shell: bash
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder ${{ matrix.args }} --publish never
+      - name: Beri nama tetap
+        if: steps.want.outputs.go == '1'
+        working-directory: desktop/dist
+        shell: bash
+        run: |
+          mkdir -p ../out
+          for f in *.deb; do [ -e "$f" ] && cp "$f" ../out/Kurama-linux-amd64.deb; done
+          for f in *.AppImage; do [ -e "$f" ] && cp "$f" ../out/Kurama-linux-x86_64.AppImage; done
+          for f in *.exe; do [ -e "$f" ] && cp "$f" ../out/Kurama-windows-x64-setup.exe; done
+          for f in *.dmg; do [ -e "$f" ] && cp "$f" ../out/Kurama-macos.dmg; done
+          ls -la ../out
+      - name: Lampirkan ke rilis
+        if: steps.want.outputs.go == '1'
+        shell: bash
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "Kurama $TAG" --notes "Rilis Kurama $TAG oleh KyMind."
+          gh release upload "$TAG" desktop/out/* --repo "$GITHUB_REPOSITORY" --clobber

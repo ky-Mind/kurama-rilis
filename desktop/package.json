@@ -1,0 +1,43 @@
+{
+  "name": "kurama",
+  "productName": "Kurama",
+  "version": "1.0.0",
+  "description": "Kurama, teman berpikir untuk ide, tulisan, dan kode",
+  "author": { "name": "KyMind", "email": "noreply@kymind.id" },
+  "homepage": "https://kurama.xianzing.my.id",
+  "license": "UNLICENSED",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist:linux": "electron-builder --linux deb AppImage",
+    "dist:win": "electron-builder --win nsis",
+    "dist:mac": "electron-builder --mac dmg"
+  },
+  "devDependencies": {
+    "electron": "45.3.0",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "id.kymind.kurama",
+    "productName": "Kurama",
+    "copyright": "© KyMind",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["main.js", "preload.js", "offline.html", "build/icon.png", "build/rubah.png"],
+    "protocols": [{ "name": "Kurama", "schemes": ["kurama"] }],
+    "artifactName": "kurama-${version}-${arch}.${ext}",
+    "linux": {
+      "target": ["deb", "AppImage"],
+      "category": "Utility",
+      "icon": "build/icon.png",
+      "maintainer": "KyMind",
+      "vendor": "KyMind",
+      "synopsis": "Teman berpikir untuk ide, tulisan, dan kode",
+      "executableName": "kurama",
+      "desktop": { "entry": { "StartupWMClass": "Kurama" } }
+    },
+    "deb": { "packageName": "kurama" },
+    "win": { "target": "nsis", "icon": "build/icon.png" },
+    "nsis": { "oneClick": true, "shortcutName": "Kurama" },
+    "mac": { "target": "dmg", "icon": "build/icon.png", "category": "public.app-category.productivity" }
+  }
+}

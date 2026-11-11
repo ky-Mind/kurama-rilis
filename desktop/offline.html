@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+  <title>Kurama</title>
+  <style>
+    :root { --bg: #faf9f5; --fg: #141413; --mu: #6b6a65; }
+    :root.dark { --bg: #262624; --fg: #faf9f5; --mu: #b8b5a9; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; -webkit-user-select: none; user-select: none; }
+    main { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; box-sizing: border-box; }
+    img { width: 96px; height: 96px; animation: in .6s ease both; }
+    h1 { font: 400 1.75rem Georgia, serif; margin: 1rem 0 .25rem; }
+    p { color: var(--mu); max-width: 26rem; line-height: 1.5; }
+    button { margin-top: 1rem; padding: .75rem 1.5rem; border: 0; border-radius: .75rem; background: #e8730c; color: #fff; font-size: 1rem; cursor: pointer; }
+    .brand { position: fixed; bottom: 34px; left: 0; right: 0; text-align: center; font-size: 15px; opacity: 0; animation: fade .5s .25s ease forwards; }
+    .brand b { letter-spacing: .02em; }
+    .brand i { font-family: Georgia, serif; font-weight: 300; }
+    .splash h1, .splash p, .splash button { display: none; }
+    body:not(.splash) .brand { display: none; }
+    @keyframes in { from { transform: scale(.9); opacity: .6; } to { transform: none; opacity: 1; } }
+    @keyframes fade { to { opacity: .85; } }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="build/rubah.png" alt="">
+    <h1>Tidak ada internet</h1>
+    <p>Kurama butuh koneksi untuk menjawab. Periksa internetmu lalu coba lagi.</p>
+    <button type="button" id="retry">Coba lagi</button>
+  </main>
+  <div class="brand"><b>Ky</b><i>Mind</i></div>
+  <script>
+    const q = new URLSearchParams(location.search);
+    if (q.get("dark") === "1") document.documentElement.classList.add("dark");
+    if (q.get("mode") === "splash") document.body.classList.add("splash");
+    document.getElementById("retry").onclick = () => {
+      const u = q.get("url") || "https://kurama.xianzing.my.id/";
+      location.href = u.startsWith("https://kurama.xianzing.my.id/") ? u : "https://kurama.xianzing.my.id/";
+    };
+  </script>
+</body>
+</html>
